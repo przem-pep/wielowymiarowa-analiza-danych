@@ -1,0 +1,140 @@
+---
+title: "Analiza zbioru danych mieszkania"
+subtitle: "Wielowymiarowa analiza danych"
+author: "Przemysław Peplinski, Wiktor Galewski, Mikołaj Zalewski"
+date: "`r Sys.Date()`"
+output: pdf_document
+toc: true
+toc-title: "Spis treści"
+fontsize: 12pt
+
+header-includes:
+  - \setcounter{secnumdepth}{2}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE)
+```
+
+```{r wczytanie pakietów, include=FALSE}
+library(tidyverse)
+library(readxl)
+
+```
+
+```{r definiowanie funkcji, include=FALSE}
+
+
+```
+
+```{r wczytanie danych, include=FALSE}
+dane <- read_excel("mieszkania.xlsx")
+```
+
+# Wstęp
+
+## Autorzy
+
+Autorami są... Wkład w projekt prezentował się następująco...
+
+## Motywacja i cele
+
+Coś tam...
+
+## Opis projektu
+
+Coś tam...
+
+# Opis danych
+
+Dane pochodzą.../Dane zostały zebrane...
+
+```{r przegląd danych}
+glimpse(dane)
+```
+
+Opisać zmienne...
+
+Wśród zmiennych niepotrzebnych do analizy można wymienić link, tytuł, opis oraz numer telefonu. Zmienne te zostaną zatem usunięte.
+
+```{r usuwanie zmiennych}
+dane <- dane %>%
+  select(c(-Link, -Tytuł, -Opis, -`Numer telefonu`))
+  
+```
+
+# Analiza eksploracyjna
+
+## Statystyki opisowe
+
+```{r statystyki opisowe}
+summary(dane)
+```
+
+
+## Analiza rozkładów
+
+Histogramy zmiennych numerycznych, wykresy kolumnowe zmiennych kategorycznych
+
+```{r histogramy}
+ggplot(dane, aes(x = Powierzchnia)) +
+  geom_histogram(bins = 20)
+
+```
+
+## Analiza korelacji
+
+Macierz korelacji
+
+## Analiza braków danych
+
+Krótkie podsumowanie braków danych (wykres słupkowy?)
+
+```{r zliczenie braków danych, fig.align='center', fig.width=6, fig.height=4}
+braki_danych <- colSums(is.na(dane)) / nrow(dane)
+ggplot(mapping = aes(x = names(braki_danych), y = braki_danych)) +
+  geom_col(fill = "firebrick") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Udział braków danych wg zmiennej",
+       x = NULL,
+       y = NULL) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 90))
+
+```
+
+## Analiza obserwacji odstających
+
+Zrobić boxploty
+
+# Czyszczenie danych
+
+## Obsługa braków wartości
+
+Kilka zmiennych do usunięcia, dla niektórych trzeba usunąć obserwacje, w innych imputować wg obliczeń.
+
+## Obsługa obserwacji odstających
+
+Walidacja, poza tym zostawiamy
+
+# Obróbka zmiennych
+
+## Kodowanie zmiennych kategorycznych
+
+## Normalizacja zmiennych numerycznych
+
+# 2 metody
+
+## Metoda 1
+
+## Metoda 2
+
+# Porównanie metod
+
+Porównanie i wizualizacje
+
+# Wnioski
