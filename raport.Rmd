@@ -31,7 +31,8 @@ library(readxl)
 ```
 
 ```{r wczytanie danych, include=FALSE}
-dane <- read_excel("mieszkania.xlsx")
+dane <- read_excel("mieszkania.xlsx") %>%
+  distinct(Link, .keep_all = TRUE)
 ```
 
 # Wstęp
@@ -62,9 +63,46 @@ Wśród zmiennych niepotrzebnych do analizy można wymienić link, tytuł, opis 
 
 ```{r usuwanie zmiennych}
 dane <- dane %>%
-  select(c(-Link, -Tytuł, -Opis, -`Numer telefonu`))
+  select(c(-Link, `Data modyfikacji`, -Tytuł, -Opis, -`Numer telefonu`))
   
 ```
+
+
+
+
+# Czyszczenie danych
+
+## Walidacja
+
+Tak
+
+```{r}
+glimpse(dane)
+```
+
+
+```{r walidacja}
+dane %>%
+  summarise(across(everything(),
+                   list(
+                     min = function(x) min(x, na.rm = TRUE),
+                     max = function (x) max(x, na.rm = TRUE)))) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = c("variable", ".value"),
+    names_sep = "_"
+  )
+
+```
+
+
+## Obsługa braków wartości
+
+Kilka zmiennych do usunięcia, dla niektórych trzeba usunąć obserwacje, w innych imputować wg obliczeń.
+
+## Obsługa obserwacji odstających
+
+Jako tako zostawiamy
 
 # Analiza eksploracyjna
 
@@ -80,8 +118,9 @@ summary(dane)
 Histogramy zmiennych numerycznych, wykresy kolumnowe zmiennych kategorycznych
 
 ```{r histogramy}
-ggplot(dane, aes(x = Powierzchnia)) +
-  geom_histogram(bins = 20)
+ggplot(dane, aes(x = Piętro)) +
+  geom_histogram(binwidth = 1) +
+  theme_bw()
 
 ```
 
@@ -110,16 +149,6 @@ ggplot(mapping = aes(x = names(braki_danych), y = braki_danych)) +
 ## Analiza obserwacji odstających
 
 Zrobić boxploty
-
-# Czyszczenie danych
-
-## Obsługa braków wartości
-
-Kilka zmiennych do usunięcia, dla niektórych trzeba usunąć obserwacje, w innych imputować wg obliczeń.
-
-## Obsługa obserwacji odstających
-
-Walidacja, poza tym zostawiamy
 
 # Obróbka zmiennych
 
