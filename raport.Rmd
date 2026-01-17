@@ -22,7 +22,7 @@ knitr::opts_chunk$set(
 ```{r wczytanie pakietów, include=FALSE}
 library(tidyverse)
 library(readxl)
-
+library(missForest)
 ```
 
 ```{r definiowanie funkcji, include=FALSE}
@@ -31,8 +31,7 @@ library(readxl)
 ```
 
 ```{r wczytanie danych, include=FALSE}
-dane <- read_excel("mieszkania.xlsx") %>%
-  distinct(Link, .keep_all = TRUE)
+dane <- read_excel("mieszkania.xlsx")
 ```
 
 # Wstęp
@@ -60,15 +59,6 @@ glimpse(dane)
 Opisać zmienne...
 
 Wśród zmiennych niepotrzebnych do analizy można wymienić link, tytuł, opis oraz numer telefonu. Zmienne te zostaną zatem usunięte.
-
-```{r usuwanie zmiennych}
-dane <- dane %>%
-  select(c(-Link, `Data modyfikacji`, -Tytuł, -Opis, -`Numer telefonu`))
-  
-```
-
-
-
 
 # Czyszczenie danych
 
@@ -99,6 +89,66 @@ dane %>%
 ## Obsługa braków wartości
 
 Kilka zmiennych do usunięcia, dla niektórych trzeba usunąć obserwacje, w innych imputować wg obliczeń.
+
+```{r czyszczenie danych}
+# usuniecie duplikatow po linku
+dane <- distinct(dane, Link, .keep_all = TRUE)
+
+# usuniecie zbednych kolumn
+dane <- dane %>%
+  select(c(-Link, -Tytuł, -Opis, -`Numer telefonu`, -Ocena, -`Liczba pięter`))
+
+# modyfikacja ogloszenia jako zmienna binarna
+dane <- dane %>%
+  mutate(`Data modyfikacji` = as.integer(!is.na(`Data modyfikacji`)))
+
+# cena za metr - usuniecie bledow i NA
+dane <- dane %>%
+  filter(`Cena za metr` >= 1100 & `Cena za metr` <= 63000)
+
+# powierzchnia - usuniecie bledow
+dane <- dane %>%
+  filter(Powierzchnia >= 14 & Powierzchnia <= 900)
+
+# pietro - usuniecie bledow i NA
+dane <- dane %>%
+  filter(Piętro >= 0 & Piętro <= 20)
+
+# liczba pokoi - poprawa i wymazanie bledow
+dane <- dane %>%
+  mutate(`Liczba pokoi` = case_when(
+    `Liczba pokoi` %in% c(21, 23) ~ 2,
+    `Liczba pokoi` >= 1 & `Liczba pokoi` <= 24 ~ `Liczba pokoi`,
+    TRUE ~ NA_real_))
+
+# ogloszeniodawca i rynek - usuniecie NA
+dane <- dane %>%
+  filter(!is.na(Ogłoszeniodawca) & !is.na(Rynek))
+
+# rok budowy - wymazanie bledow
+dane <- dane %>%
+  mutate(`Rok budowy` = if_else(between(`Rok budowy`, 1780, 2028), 
+                                `Rok budowy`, NA_real_))
+
+# rodzaj budynku - pozostale jako NA
+dane <- dane %>%
+  mutate(`Rodzaj budynku` = na_if(`Rodzaj budynku`, "Pozostałe"))
+
+# usuniecie obserwacji, gdzie zarowno rok budowy, jak i rodzaj budynku sa NA
+dane <- dane %>%
+  filter(!(is.na(`Rok budowy`) & is.na(`Rodzaj budynku`)))
+
+# modyfikacja typow niektorych zmiennych
+dane <- dane %>%
+  mutate(`Data dodania` = as.numeric(as.Date(`Data dodania`))) %>%
+  mutate(across(c(Dzielnica, `Rodzaj budynku`, Portal), as.factor)) %>%
+  mutate(Rynek = as.integer(Rynek == "Pierwotny")) %>%
+  mutate(Ogłoszeniodawca = as.integer(Ogłoszeniodawca == "Agencja"))
+
+# imputacja brakow danych (liczba pokoi, rok budowy, rodzaj budynku)
+imputacje <- missForest(as.data.frame(dane), verbose = TRUE)
+dane <- imputacje$ximp
+```
 
 ## Obsługa obserwacji odstających
 
