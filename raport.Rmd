@@ -19,19 +19,39 @@ knitr::opts_chunk$set(
   warning = FALSE)
 ```
 
-```{r wczytanie pakietów, include=FALSE}
+```{r wczytanie-pakietow, include=FALSE}
+
 library(tidyverse)
 library(readxl)
 library(missForest)
+library(corrplot)
+library(psych)
+library(factoextra)
+library(ggcorrplot)
+
 ```
 
-```{r definiowanie funkcji, include=FALSE}
+```{r definiowanie-funkcji, include=FALSE}
+
+# Histogram dla podanej zmiennej
+
+histogram <- function(data, x, binwidth = NULL, bins = NULL, title) {
+  ggplot(data, aes(x = {{ x }})) +
+  geom_histogram(binwidth = binwidth, bins = bins, fill = "firebrick") +
+  labs(x = NULL,
+       y = NULL,
+       title = title) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 16))
+}
 
 
 ```
 
-```{r wczytanie danych, include=FALSE}
+```{r wczytanie-danych, include=FALSE}
+
 dane <- read_excel("mieszkania.xlsx")
+
 ```
 
 # Wstęp
@@ -52,7 +72,7 @@ Coś tam...
 
 Dane pochodzą.../Dane zostały zebrane...
 
-```{r przegląd danych}
+```{r przeglad-danych}
 glimpse(dane)
 ```
 
@@ -72,16 +92,6 @@ glimpse(dane)
 
 
 ```{r walidacja}
-dane %>%
-  summarise(across(everything(),
-                   list(
-                     min = function(x) min(x, na.rm = TRUE),
-                     max = function (x) max(x, na.rm = TRUE)))) %>%
-  pivot_longer(
-    cols = everything(),
-    names_to = c("variable", ".value"),
-    names_sep = "_"
-  )
 
 ```
 
@@ -90,7 +100,7 @@ dane %>%
 
 Kilka zmiennych do usunięcia, dla niektórych trzeba usunąć obserwacje, w innych imputować wg obliczeń.
 
-```{r czyszczenie danych}
+```{r czyszczenie-danych}
 # usuniecie duplikatow po linku
 dane <- distinct(dane, Link, .keep_all = TRUE)
 
@@ -143,6 +153,7 @@ dane <- dane %>%
   mutate(`Data dodania` = as.numeric(as.Date(`Data dodania`))) %>%
   mutate(across(c(Dzielnica, `Rodzaj budynku`, Portal), as.factor)) %>%
   mutate(Rynek = as.integer(Rynek == "Pierwotny")) %>%
+  mutate(`Rok budowy` = as.integer(`Rok budowy`)) %>%
   mutate(Ogłoszeniodawca = as.integer(Ogłoszeniodawca == "Agencja"))
 
 # imputacja brakow danych (liczba pokoi, rok budowy, rodzaj budynku)
@@ -158,7 +169,7 @@ Jako tako zostawiamy
 
 ## Statystyki opisowe
 
-```{r statystyki opisowe}
+```{r statystyki-opisowe}
 summary(dane)
 ```
 
@@ -167,22 +178,79 @@ summary(dane)
 
 Histogramy zmiennych numerycznych, wykresy kolumnowe zmiennych kategorycznych
 
-```{r histogramy}
-ggplot(dane, aes(x = Piętro)) +
-  geom_histogram(binwidth = 1) +
-  theme_bw()
+```{r histogramy, fig.align='center', fig.width=6, fig.height=4}
 
+# Histogram pięter
+
+histogram(
+  data = dane,
+  x = Piętro,
+  binwidth = 1,
+  title = "Rozkład pięter mieszkań"
+)
+
+# Histogram cen mieszkań
+
+histogram(
+  data = dane,
+  x = Cena,
+  bins = 100,
+  title = "Rozkład cen mieszkań w zł"
+)
+
+# Histogram ceny za metr
+
+histogram(
+  data = dane,
+  x = `Cena za metr`,
+  bins = 50,
+  title = "Rozkład ceny za metr kwadratowy mieszkań w zł/m^2"
+)
+
+# Histogram powierzchni mieszkań
+
+histogram(
+  data = dane,
+  x = Powierzchnia,
+  bins = 50,
+  title = "Rozkład powierzchni mieszkań w m^2"
+)
+
+# Histogram liczby pokoi
+
+histogram(
+  data = dane,
+  x = `Liczba pokoi`,
+  binwidth = 1,
+  title = "Rozkład liczby pokoi"
+)
 ```
 
 ## Analiza korelacji
 
 Macierz korelacji
 
+``` {r macierz-korelacji, fig.align='center', fig.width=6, fig.height=4}
+
+korelacje <- dane %>%
+  select(where(is.numeric)) %>%
+  cor()
+
+corrplot(korelacje,
+         method = "color",
+         addCoef.col = "black",
+         tl.col = "black",
+         tl.srt = 45,
+         number.cex = 0.75,
+         tl.cex = 0.75)
+
+```
+
 ## Analiza braków danych
 
 Krótkie podsumowanie braków danych (wykres słupkowy?)
 
-```{r zliczenie braków danych, fig.align='center', fig.width=6, fig.height=4}
+```{r zliczenie-brakow-danych, fig.align='center', fig.width=6, fig.height=4}
 braki_danych <- colSums(is.na(dane)) / nrow(dane)
 ggplot(mapping = aes(x = names(braki_danych), y = braki_danych)) +
   geom_col(fill = "firebrick") +
@@ -200,7 +268,21 @@ ggplot(mapping = aes(x = names(braki_danych), y = braki_danych)) +
 
 Zrobić boxploty
 
+``` {r box-ploty, fig.align='center', fig.width=6, fig.height=4}
+
+ggplot(dane, aes(y = Powierzchnia)) +
+  geom_boxplot() +
+  theme_bw()
+
+```
+
 # Obróbka zmiennych
+
+``` {r filtrowanie-danych}
+
+
+
+```
 
 ## Kodowanie zmiennych kategorycznych
 
@@ -208,12 +290,59 @@ Zrobić boxploty
 
 # 2 metody
 
-## Metoda 1
+## Analiza głównych składowych (PCA)
 
-## Metoda 2
 
-# Porównanie metod
 
-Porównanie i wizualizacje
+``` {r pca-setup}
+
+dane_pca <- dane %>%
+  select(Cena, Powierzchnia, `Liczba pokoi`, Piętro, `Rok budowy`)
+
+cor_pca <- cor(dane_pca)
+
+cortest.bartlett(cor_pca)
+
+```
+
+
+```{r pca-1, fig.align='center', fig.width=6, fig.height=4}
+
+pca <- prcomp(dane_pca, center = TRUE, scale. = TRUE)
+
+fviz_screeplot(pca, geom = "line", addlabels = TRUE)
+
+```
+
+```{r pca-2}
+
+get_eig(pca)
+
+```
+Korzystając z kryterium Keisera można określić, że mieszkania można określić za pomocą dwóch zmiennych, ponieważ dla nich wartości własne są większe od 1. Taki sam wniosek można wyciągnąć na podstawie oceny wykresu osypiska, gdyż po drugim wymiarze zmiana wariancji jest znacznie mniejsza.
+
+## Analiza korespondencji (CA)
+
+# Wizualizacja metod
+
+## Wizualizacje PCA
+
+```{r wizualizacje-pca, fig.align='center', fig.width=6, fig.height=4}
+
+pcaVars <- get_pca_var(pca)
+
+ggcorrplot(pcaVars$coord[, 1:2],
+           colors = c("blue","white","blue"),
+           tl.cex=9,
+           lab=TRUE,
+           lab_size=3
+           )
+
+
+```
+
+
+## Wizualizacje CA
+
 
 # Wnioski
