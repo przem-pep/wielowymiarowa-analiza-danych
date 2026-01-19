@@ -1,5 +1,5 @@
 ---
-title: "Analiza zbioru danych mieszkania"
+title: "Analiza ofert mieszkań w Gdańsku"
 subtitle: "Wielowymiarowa analiza danych"
 author: "Przemysław Peplinski, Wiktor Galewski, Mikołaj Zalewski"
 date: "`r Sys.Date()`"
@@ -28,6 +28,8 @@ library(corrplot)
 library(psych)
 library(factoextra)
 library(ggcorrplot)
+library(ca)
+library(FactoMineR)
 
 ```
 
@@ -100,7 +102,7 @@ glimpse(dane)
 
 Kilka zmiennych do usunięcia, dla niektórych trzeba usunąć obserwacje, w innych imputować wg obliczeń.
 
-```{r czyszczenie-danych}
+```{r czyszczenie-danych, include=FALSE}
 # usuniecie duplikatow po linku
 dane <- distinct(dane, Link, .keep_all = TRUE)
 
@@ -278,37 +280,41 @@ ggplot(dane, aes(y = Powierzchnia)) +
 
 # Obróbka zmiennych
 
-``` {r filtrowanie-danych}
+## Normalizacja zmiennych numerycznych
 
+```{r normalizacja}
+
+dane_std <- dane %>%
+  select(Cena, Powierzchnia, `Liczba pokoi`, Piętro, `Rok budowy`) %>%
+  sapply(FUN = scale) %>%
+  as.data.frame() %>%
+  as_tibble()
 
 
 ```
 
-## Kodowanie zmiennych kategorycznych
-
-## Normalizacja zmiennych numerycznych
-
-# 2 metody
+# Analiza wielowymiarowa
 
 ## Analiza głównych składowych (PCA)
 
-
+W zbiorze danych tylko pięć ze zmiennych można wykorzystać do przeprowadzenia analizy głównych składowych. Ponieważ PCA wykorzystuje kowariancję, którą oblicza się za pomocą wariancji, wśród zmiennych uwzględnionych w analizie mogą znaleźć się tylko zmienne, dla których istnieje logiczny sens obliczenia różnicy pomiędzy jedną a drugą wartością. W tym zbiorze danych występuje 5 takich zmiennych: cena, powierzchnia, liczba pokoi, piętro oraz rok budowy. Cena za metr kwadratowy zostaje pominięta ze względu na redundancję informacji ze zmiennymi ceny oraz powierzchni. Podane 5 zmiennych zostało wykorzystane do analizy głównych składowych.
 
 ``` {r pca-setup}
 
-dane_pca <- dane %>%
-  select(Cena, Powierzchnia, `Liczba pokoi`, Piętro, `Rok budowy`)
-
-cor_pca <- cor(dane_pca)
+cor_pca <- cor(dane_std)
 
 cortest.bartlett(cor_pca)
 
 ```
 
+Za pomocą testu Bartletta sprawdzamy czy sensowne jest wykonywanie PCA. Hipoteza zerowa tego testu mówi, że macierz korelacji jest macierzą jednostkową, czyli zmienne nie są skorelowane, a w tym przypadku nie ma sensu wykonywać PCA. Hipoteza alternatywna z kolei mówi, że macierz korelacji nie jest macierzą jednostkową, więc zmienne są skorelowane, a zatem istnieje sens wykonywania PCA.
+
+Na podstawie wykonanego testu Bartletta widać, że wartość p wynosi ok. 7,5e-31, a zatem odrzucamy hipotezę zerową. Z tego względu w kolejnym kroku wykonujemy PCA.
+
 
 ```{r pca-1, fig.align='center', fig.width=6, fig.height=4}
 
-pca <- prcomp(dane_pca, center = TRUE, scale. = TRUE)
+pca <- prcomp(dane_std, center = FALSE, scale. = FALSE)
 
 fviz_screeplot(pca, geom = "line", addlabels = TRUE)
 
@@ -319,30 +325,106 @@ fviz_screeplot(pca, geom = "line", addlabels = TRUE)
 get_eig(pca)
 
 ```
-Korzystając z kryterium Keisera można określić, że mieszkania można określić za pomocą dwóch zmiennych, ponieważ dla nich wartości własne są większe od 1. Taki sam wniosek można wyciągnąć na podstawie oceny wykresu osypiska, gdyż po drugim wymiarze zmiana wariancji jest znacznie mniejsza.
+Korzystając z kryterium Keisera można określić, że mieszkania można określić za pomocą pierwszych dwóch głównych składowych, ponieważ dla nich wartości własne są większe od 1. Taki sam wniosek można wyciągnąć na podstawie oceny wykresu osypiska, gdyż po drugim wymiarze zmiana wariancji jest znacznie mniejsza.
 
-## Analiza korespondencji (CA)
+## Analiza skupień (clustering)
 
-# Wizualizacja metod
+Drugą wykonaną analizą jest analiza skupień. Została tutaj wykorzystana metoda k-średnich. Analiza została przeprowadzona dla tych samych zmiennych, co PCA.
 
-## Wizualizacje PCA
+Ze względu na rozmiar zbioru danych, niemożliwe jest stworzenie wykresów za pomocą funkcji fviz_nbclust, nawet dla metody łokciowej WSS, ze względu na ich złożoność obliczeniową związaną z wielokrotnym klastrowaniem i zapisywaniem tych wyników. Z tego względu, jedyną alternatywą jest manualne zastosowanie metody k-średnich, przy zapisywaniu tylko aktualnego obiektu kmeans oraz sumy kwadratów z każdej liczby klastrów, a następnie przedstawienie sum kwadratów wewnątrz klastrów na wykresie, co wykonano poniżej.
 
-```{r wizualizacje-pca, fig.align='center', fig.width=6, fig.height=4}
 
-pcaVars <- get_pca_var(pca)
+```{r }
 
-ggcorrplot(pcaVars$coord[, 1:2],
-           colors = c("blue","white","blue"),
-           tl.cex=9,
-           lab=TRUE,
-           lab_size=3
-           )
+# Manualnie przeprowadzona metoda łokciowa WSS
+
+set.seed(123)
+
+wss <- numeric(10)
+
+for (k in 1:10) {
+  km <- kmeans(dane_std, centers = k, nstart = 25)
+  wss[k] <- km$tot.withinss
+}
+
+plot(1:10, wss, type = "b",
+     xlab = "Number of clusters (k)",
+     ylab = "Total within-cluster Sum of Squares")
+
+
+```
+Wykres nie daje bardzo konkluzywnej odpowiedzi na pytanie ile klastrów użyć, natomiast na podstawie oceny wykresu można powiedzieć, że 3 klastry powinny być dobrą opcją. Analiza została zatem przeprowadzona dla trzech klastrów.
+
+
+
+```{r }
+
+km3 <- kmeans(dane_std, centers = 3, nstart = 25)
+
+dane_grupy <- dane %>%
+  select(Cena, Powierzchnia, `Liczba pokoi`, Piętro, `Rok budowy`) %>%
+  mutate(Grupa = as.factor(km3$cluster))
 
 
 ```
 
 
-## Wizualizacje CA
+
+
+
+# Wizualizacja metod
+
+## Wizualizacje PCA
+
+```{r wizualizacje-pca-1, fig.align='center', fig.width=6, fig.height=4}
+
+pcaVars <- get_pca_var(pca)
+
+ggcorrplot(pcaVars$coord[, 1:2],
+           colors = c("blue","white","blue"),
+           tl.cex = 9,
+           lab = TRUE,
+           lab_size = 3
+           )
+
+
+```
+
+Mieszkania można zatem opisać za pomocą dwóch składowych głównych. Pierwsza z nich dotyczy parametrów samego mieszkania, które dotyczą rozmiaru oraz wartości rynkowej nieruchomości. Obserwacje z niskimi wartościami tej składowej to małe, tańsze mieszkania, np. kawalerki, natomiast wyższe wartości mogą oznaczać duże, wielopokojowe nieruchomości. Druga składowa główna dotyczy właściwości samego budynku, w którym znajduje się to mieszkanie. Niskie wartości tej składowej oznaczają niskie, stare budynki, a wyższe wartości wskazują na nowsze budynki w wysokiej zabudowie.
+
+```{r wizualizacje-pca-2, fig.align='center', fig.width=6, fig.height=4}
+
+fviz_pca_biplot(pca,
+                repel = TRUE,
+                col.var = "blue",
+                col.ind = "orange",
+                label = "var",
+                labelsize = 4)
+
+
+```
+
+Wykres biplot pozwala na wyciągnięcie dwóch istotnych wniosków.
+
+Po pierwsze, potwierdza się wniosek wyciągnięty z macierzy korelacji o sile i kierunku wpływu zmiennych na poszczególne główne składowe.
+
+Po drugie, przedstawienie obserwacji za pomocą punktów wskazuje, że występuje mała ilość silnie odstających obserwacji w pierwszym z wymiarów. Mogą to być wielopokojowe apartamenty przeznaczone na wynajem pojedynczych pokoi, a być może i hostele lub hotele. W drugim wymiarze nie ma tak silnie odstających obserwacji, lecz pojawiają się stare nieruchomości o niskiej zabudowie.
+
+
+## Wizualizacje analizy skupień
+
+```{r wizualizacje-clustering}
+
+fviz_cluster(km3, data = dane_std, geom = "point")
+
+ggscatter(x = "Rok budowy", y = "Cena", color = "Grupa", data = dane_grupy)
+
+
+```
+
 
 
 # Wnioski
+
+
+
