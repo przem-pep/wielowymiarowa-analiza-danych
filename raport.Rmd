@@ -2,7 +2,7 @@
 title: "Analiza ofert sprzedaży mieszkań w Gdańsku"
 subtitle: "Wielowymiarowa analiza danych"
 author: "Przemysław Peplinski, Wiktor Galewski, Mikołaj Zalewski"
-date: "`r Sys.Date()`"
+date: "2026-01-20"
 output: pdf_document
 toc: true
 toc-title: "Spis treści"
@@ -29,8 +29,9 @@ library(corrplot)
 library(psych)
 library(factoextra)
 library(ggcorrplot)
-library(ca)
 library(FactoMineR)
+library(scales)
+library(ggpubr)
 
 ```
 
@@ -48,11 +49,12 @@ histogram <- function(data, x, binwidth = NULL, bins = NULL, title) {
   theme(plot.title = element_text(hjust = 0.5, size = 16))
 }
 
-# Boxplot
+# Boxplot dla podanej zmiennej
 
 boxplot <- function(data, x, title) {
   ggplot(data, aes(x = {{ x }})) +
-    geom_boxplot(fill = "firebrick", color = "black", outlier.colour = "black", outlier.shape = 16) +
+    geom_boxplot(fill = "firebrick", color = "black",
+                 outlier.colour = "black", outlier.shape = 16) +
     labs(x = NULL,
          y = NULL,
          title = title) +
@@ -60,7 +62,7 @@ boxplot <- function(data, x, title) {
     theme(plot.title = element_text(hjust = 0.5, size = 16))
 }
 
-#Wykres kolumnowy dla podanej zmiennej 
+# Wykres kolumnowy dla podanej zmiennej 
 
 wykres_kolumnowy <- function(data, x, title) {
   ggplot(data, aes(x = {{ x }})) +
@@ -70,7 +72,7 @@ wykres_kolumnowy <- function(data, x, title) {
          title = title) +
     theme_bw() +
     theme(plot.title = element_text(hjust = 0.5, size = 16),
-          axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) # Obrót napisów, jeśli są długie
+          axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 }
 
 ```
@@ -85,15 +87,19 @@ dane <- read_excel("mieszkania.xlsx")
 
 ## Autorzy
 
-Autorami są... Wkład w projekt prezentował się następująco...
+Przedstawiono autorów oraz ich wkłady.
+
+- Przemysław Peplinski: zalążek analizy eksploracyjnej, analizy wielowymiarowe oraz ich wizualizacje.
+- Wiktor Galewski: zebranie danych, ich opis i czyszczenie
+- Mikołaj Zalewski: analiza eksploracyjna
 
 ## Motywacja i cele
 
-Coś tam...
+Rynek mieszkań jest rynkiem istotnym dla młodych ludzi - chociażby dla studentów oraz absolwentów studiów. Przystępujemy więc do analizy rzeczywistych danych na temat rynku mieszkań w Gdańsku w celu lepszego zrozumienia charakteru tego rynku, zarówno w celach praktycznego zastosowania metod wielowymiarowej analizy danych, jak i dla pogłębienia własnej wiedzy życiowej w tym ważnym aspekcie naszego życia.
 
 ## Opis projektu
 
-Coś tam...
+Wśród ofert sprzedaży mieszkań w Gdańsku mogą występować inherentne zależności, których nie sposób zobaczyć przeglądając oferty mieszkań na stronach internetowych. Za pomocą analizy danych chcemy zatem sprawdzić, czy takie zależności występują, a jeśli tak, to jaki mają charakter.
 
 # Opis danych
 
@@ -104,6 +110,27 @@ glimpse(dane)
 ```
 
 # Czyszczenie danych
+
+## Braki danych
+
+Na poniższym wykresie przedstawiono udział braków danych w wartościach każdej zmiennej.
+
+```{r zliczenie-brakow-danych, fig.align='center', fig.width=6, fig.height=4}
+braki_danych <- colSums(is.na(dane)) / nrow(dane)
+ggplot(mapping = aes(x = names(braki_danych), y = braki_danych)) +
+  geom_col(fill = "firebrick") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Udział braków danych wg zmiennej",
+       x = NULL,
+       y = NULL) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 90))
+
+```
+
+Występuje wiele braków danych, więc potrzebna jest ich kompleksowa obsługa.
+
 
 ## Walidacja danych i obsługa braków wartości
 
@@ -170,9 +197,6 @@ dane <- imputacje$ximp
 
 Usunięto zduplikowane obserwacje. Usunięto zmienne uznane za nieprzydatne do analizy (ocena - trudna w interpretacji zmienna syntetyczna dodawana przez platformę dla inwestorów, dużo braków danych (zera) - ocena zaczęła być wyświetlana dopiero jakiś czas temu; liczba pięter budynku - bardzo dużo braków danych, ciężka do imputacji; reszta usuniętych zmiennych miała znikomą wartość informacyjną). Data modyfikacji ogłoszenia (część ogłoszeń ulegała edycji) zamieniona na zmienną binarną - informuje, czy edycja w ogóle występowała. Cena za metr - usunięto NA (których było bardzo niewiele) i wartości skrajnie odstające uznane za jawne błędy - tym samym poradzono sobie z tożsamymi przypadkami w zmiennej Cena. Podobnie usunięto błędy w innych zmiennych, a także NA, jeśli uznano, że jest ich stosunkowo niewiele, a nie nadają się do imputacji poprzez relacje z resztą zmiennych (w zmiennej Liczba pokoi poprawiono również kilka outlierów ręcznie na podstawie opisu ogłoszenia). Zmodyfikowano typ niektórych zmiennych, na przykład Data jako zmienna numeryczna czy zmienne jakościowe zamienione na factory lub binarne. Na koniec imputowano braki danych w kolumnach Liczba pokoi, Rok budowy i Rodzaj budynku metodą Random Forest.
 
-## Obsługa obserwacji odstających
-
-Jako tako zostawiamy...
 
 # Analiza eksploracyjna
 
@@ -184,9 +208,9 @@ summary(dane)
 
 ## Analiza rozkładów
 
-Histogramy zmiennych numerycznych, wykresy kolumnowe zmiennych kategorycznych
+Dla zmiennych numerycznych stworzono histogramy, natomiast dla zmiennych kategorycznych wykonano wykresy kolumnowe.
 
-```{r histogramy, fig.align='center', fig.width=6, fig.height=4}
+```{r histogram-1, fig.align='center', fig.width=6, fig.height=4}
 
 # Histogram pięter
 
@@ -197,6 +221,10 @@ histogram(
   title = "Rozkład pięter mieszkań"
 )
 
+```
+
+```{r histogram-2, fig.align='center', fig.width=6, fig.height=4}
+
 # Histogram cen mieszkań
 
 histogram(
@@ -205,6 +233,10 @@ histogram(
   bins = 100,
   title = "Rozkład cen mieszkań w zł"
 )
+
+```
+
+```{r histogram-3, fig.align='center', fig.width=6, fig.height=4}
 
 # Histogram ceny za metr
 
@@ -215,6 +247,10 @@ histogram(
   title = "Rozkład ceny za metr kwadratowy mieszkań w zł/m^2"
 )
 
+```
+
+```{r histogram-4, fig.align='center', fig.width=6, fig.height=4}
+
 # Histogram powierzchni mieszkań
 
 histogram(
@@ -224,6 +260,10 @@ histogram(
   title = "Rozkład powierzchni mieszkań w m^2"
 )
 
+```
+
+```{r histogram-5, fig.align='center', fig.width=6, fig.height=4}
+
 # Histogram liczby pokoi
 
 histogram(
@@ -231,8 +271,13 @@ histogram(
   x = `Liczba pokoi`,
   binwidth = 1,
   title = "Rozkład liczby pokoi"
-  
-  # Histogram roku budowy
+)
+
+```
+
+```{r histogram-6, fig.align='center', fig.width=6, fig.height=4}
+
+# Histogram roku budowy
 
 histogram(
   data = dane,
@@ -241,47 +286,69 @@ histogram(
   title = "Rozkład mieszkań ze względu na rok budowy"
 )
 
-#wykres kolumnowy zmiennej dzielnica
+```
+
+```{r barplot-1, fig.align='center', fig.width=6, fig.height=4}
+
+# Wykres kolumnowy zmiennej dzielnica
+
 wykres_kolumnowy(
   data = dane,
   x = Dzielnica,
   title = "Podział mieszkań ze względu na dzielnicę"
 )
 
-#wykres kolumnowy zmiennej rynek 
+```
+
+```{r barplot-2, fig.align='center', fig.width=6, fig.height=4}
+
+# Wykres kolumnowy zmiennej rynek
+
 wykres_kolumnowy(
   data = dane,
   x = Rynek,
   title = "Podział mieszkań ze względu na rodzaj rynku"
 )
 
-#wykres kolumnwy zmiennej Portal
+```
+
+```{r barplot-3, fig.align='center', fig.width=6, fig.height=4}
+
+# Wykres kolumnwy zmiennej Portal
 wykres_kolumnowy(
   data = dane,
   x = Portal,
   title = "Podział mieszkań ze względu na portal wystawienia ogłoszenia "
 )
 
-#wykres kolumnowy zmiiennej rodzaj budynku
+```
+
+```{r barplot-4, fig.align='center', fig.width=6, fig.height=4}
+
+# Wykres kolumnowy zmiiennej rodzaj budynku
 wykres_kolumnowy(
   data = dane,
   x = `Rodzaj budynku`,
   title = "Podział mieszkań ze względu na rodzaj budynku"
 )
 
-#wykres kolumnowy zmiennej ogłoszeniodawca
+```
+
+```{r barplot-5, fig.align='center', fig.width=6, fig.height=4}
+
+# Wykres kolumnowy zmiennej ogłoszeniodawca
 wykres_kolumnowy(
   data = dane,
   x = Ogłoszeniodawca,
   title = "Podział mieszkań ze względu na ogłoszeniodawcę"
 )
 
-)
 ```
+
 
 ## Analiza korelacji
 
-Macierz korelacji
+Poniżej przedstawiona została macierz korelacji.
 
 ``` {r macierz-korelacji, fig.align='center', fig.width=6, fig.height=4}
 
@@ -299,29 +366,12 @@ corrplot(korelacje,
 
 ```
 
-## Analiza braków danych
-
-Krótkie podsumowanie braków danych (wykres słupkowy?)
-
-```{r zliczenie-brakow-danych, fig.align='center', fig.width=6, fig.height=4}
-braki_danych <- colSums(is.na(dane)) / nrow(dane)
-ggplot(mapping = aes(x = names(braki_danych), y = braki_danych)) +
-  geom_col(fill = "firebrick") +
-  scale_y_continuous(labels = scales::percent) +
-  labs(title = "Udział braków danych wg zmiennej",
-       x = NULL,
-       y = NULL) +
-  theme_bw() +
-  theme(plot.title = element_text(hjust = 0.5),
-        axis.text.x = element_text(angle = 90))
-
-```
 
 ## Analiza obserwacji odstających
 
-Wykresy pudełkowe zmiennych 
+Wartości odstające zostały zbadane za pomocą wykresów pudełkowych. 
 
-``` {r box-ploty, fig.align='center', fig.width=6, fig.height=4}
+``` {r boxplot-1, fig.align='center', fig.width=6, fig.height=4}
 # Wykres pudełkowy pięter
 
 boxplot(
@@ -330,6 +380,9 @@ boxplot(
   title = "Wykres pudełkowy pięter mieszkań"
 )
 
+```
+
+```{r boxplot-2, fig.align='center', fig.width=6, fig.height=4}
 
 # Wykres pudełkowy cen mieszkań
 
@@ -339,6 +392,10 @@ boxplot(
   title = "Wykres pudełkowy cen mieszkań w zł"
 )
 
+```
+
+```{r boxplot-3, fig.align='center', fig.width=6, fig.height=4}
+
 # Wykres pudełkowy ceny za metr
 
 boxplot(
@@ -346,6 +403,10 @@ boxplot(
   x = `Cena za metr`,
   title = "Wykres pudełkowy ceny za metr kwadratowy mieszkań w zł/m^2"
 )
+
+```
+
+```{r boxplot-4, fig.align='center', fig.width=6, fig.height=4}
 
 # Wykres pudełkowy powierzchni mieszkań
 
@@ -355,6 +416,10 @@ boxplot(
   title = "Wykres pudełkowy powierzchni mieszkań w m^2"
 )
 
+```
+
+```{r boxplot-5, fig.align='center', fig.width=6, fig.height=4}
+
 # Wykres pudełkowy liczby pokoi
 
 boxplot(
@@ -363,12 +428,15 @@ boxplot(
   title = "Wykres pudełkowy liczby pokoi"
 )
 
-
 ```
+
 
 # Obróbka zmiennych
 
 ## Normalizacja zmiennych numerycznych
+
+Przeprowadzamy normalizację zmiennych, które zostaną uwzględnione w analizie. To jedyne przekształcenie, które zostało wykonane.
+
 
 ```{r normalizacja}
 
@@ -420,7 +488,8 @@ Drugą wykonaną analizą jest analiza skupień. Została tutaj wykorzystana met
 
 Ze względu na rozmiar zbioru danych, niemożliwe jest stworzenie wykresów za pomocą funkcji fviz_nbclust, nawet dla metody łokciowej WSS, ze względu na ich złożoność obliczeniową związaną z wielokrotnym klastrowaniem i zapisywaniem tych wyników. Z tego względu, jedyną alternatywą jest manualne zastosowanie metody k-średnich, przy zapisywaniu tylko aktualnego obiektu kmeans oraz sumy kwadratów z każdej liczby klastrów, a następnie przedstawienie sum kwadratów wewnątrz klastrów na wykresie, co wykonano poniżej.
 
-```{r }
+
+```{r metoda-lokciowa, fig.align='center', fig.width=6, fig.height=4}
 
 # Manualnie przeprowadzona metoda łokciowa WSS
 
@@ -442,7 +511,8 @@ plot(1:10, wss, type = "b",
 
 Wykres nie daje bardzo konkluzywnej odpowiedzi na pytanie ile klastrów użyć, natomiast na podstawie oceny wykresu można powiedzieć, że 3 klastry powinny być dobrą opcją. Analiza została zatem przeprowadzona dla trzech klastrów.
 
-```{r }
+
+```{r kmeans}
 
 km3 <- kmeans(dane_std, centers = 3, nstart = 25)
 
@@ -450,8 +520,8 @@ dane_grupy <- dane %>%
   select(Cena, Powierzchnia, `Liczba pokoi`, Piętro, `Rok budowy`) %>%
   mutate(Grupa = as.factor(km3$cluster))
 
-
 ```
+
 
 # Wizualizacja metod
 
@@ -493,15 +563,26 @@ Po drugie, przedstawienie obserwacji za pomocą punktów wskazuje, że występuj
 
 ## Wizualizacje analizy skupień
 
-```{r wizualizacje-clustering}
+```{r wizualizacje-clustering-1, fig.align='center', fig.width=6, fig.height=4}
 
 fviz_cluster(km3, data = dane_std, geom = "point")
 
-ggscatter(x = "Rok budowy", y = "Cena", color = "Grupa", data = dane_grupy)
+```
 
+Ze względu na powiązanie metody k-średnich z metodą PCA, wyniki analizy skupienia można nałożyć na rozrzut według głównych składowych. Na podstawie wykresu można ocenić, że powstałe grupy to tańsze, starsze mieszkania, tańsze, nowsze mieszkania oraz droższe mieszkania ogółem.
+
+```{r wizualizacje-clustering-2, fig.align='center', fig.width=6, fig.height=4}
+
+ggscatter(x = "Rok budowy", y = "Cena", color = "Grupa", data = dane_grupy)
 
 ```
 
+Na powyższym rysunku przedstawiono wykres punktowy roku budowy oraz ceny, z zaznaczeniem grup dla każdej obserwacji. Tutaj również widać wniosek, że tańsze mieszkania  zostały podzielone na te nowsze i starsze, a droższe mieszkania stanowią swoją odrębną grupę.
+
+
 # Wnioski
 
+Na podstawie wykonanych analiz można powiedzieć, że mieszkania w Gdańsku można opisać za pomocą ich własnych parametrów, a także cech budynku, w którym się znajdują. Ponadto zauważalny jest wyraźny podział pomiędzy tańszymi i droższymi mieszkaniami, przy czym w tych tańszych mieszkaniach występuje dodatkowy podział pomiędzy starszymi i droższymi mieszkaniami. Oznacza to, że dla tańszych mieszkań rok budowy jest istotnym czynnikiem różnicowania mieszkań. Zależność ta jednak zanika dla droższych mieszkań.
+
+Niestety nie udała się analiza wielu zmiennych ze zbioru danych, ze względu na brak znajomości odpowiednich metod pozwalających na jednoczesną analizę zmiennych numerycznych i kategorycznych. Ze względu na brak wystarczającej liczby kategorii, analiza korespondencji nie mogła zostać zastosowana. W przypadku kontynuacji prac nad projektem analiza została by rozszerzona o wielowymiarowe metody dla zmiennych kategorycznych oraz metody dla mieszanych zbiorów danych. 
 
