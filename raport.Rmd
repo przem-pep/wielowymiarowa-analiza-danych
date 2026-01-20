@@ -47,6 +47,16 @@ histogram <- function(data, x, binwidth = NULL, bins = NULL, title) {
   theme(plot.title = element_text(hjust = 0.5, size = 16))
 }
 
+boxplot <- function(data, x, title) {
+  ggplot(data, aes(x = {{ x }})) +
+    geom_boxplot(fill = "firebrick", color = "black", outlier.colour = "black", outlier.shape = 16) +
+    labs(x = NULL,
+         y = NULL,
+         title = title) +
+    theme_bw() +
+    theme(plot.title = element_text(hjust = 0.5, size = 16))
+}
+
 
 ```
 
@@ -268,13 +278,52 @@ ggplot(mapping = aes(x = names(braki_danych), y = braki_danych)) +
 
 ## Analiza obserwacji odstających
 
-Zrobić boxploty
+Wykresy pudełkowe zmiennych 
 
 ``` {r box-ploty, fig.align='center', fig.width=6, fig.height=4}
+# wykres pudełkowy pięter
 
-ggplot(dane, aes(y = Powierzchnia)) +
-  geom_boxplot() +
-  theme_bw()
+boxplot(
+  data = dane,
+  x = Piętro,
+  title = "Wykres pudełkowy pięter mieszkań"
+)
+
+
+# Wykres pudełkowy cen mieszkań
+
+boxplot(
+  data = dane,
+  x = Cena,
+  title = "Wykres pudełkowy cen mieszkań w zł"
+)
+
+# Wykres pudełkowy ceny za metr
+
+boxplot(
+  data = dane,
+  x = `Cena za metr`,
+  title = "Wykres pudełkowy ceny za metr kwadratowy mieszkań w zł/m^2"
+)
+
+# Wykres pudełkowy powierzchni mieszkań
+
+boxplot(
+  data = dane,
+  x = Powierzchnia,
+  title = "Wykres pudełkowy powierzchni mieszkań w m^2"
+)
+
+# Wykres pudełkowy liczby pokoi
+
+boxplot(
+  data = dane,
+  x = `Liczba pokoi`,
+  title = "Wykres pudełkowy liczby pokoi"
+)
+
+
+
 
 ```
 
