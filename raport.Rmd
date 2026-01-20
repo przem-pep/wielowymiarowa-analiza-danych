@@ -1,5 +1,5 @@
 ---
-title: "Analiza ofert mieszkań w Gdańsku"
+title: "Analiza ofert sprzedaży mieszkań w Gdańsku"
 subtitle: "Wielowymiarowa analiza danych"
 author: "Przemysław Peplinski, Wiktor Galewski, Mikołaj Zalewski"
 date: "`r Sys.Date()`"
@@ -17,6 +17,7 @@ knitr::opts_chunk$set(
   echo = FALSE,
   message = FALSE,
   warning = FALSE)
+
 ```
 
 ```{r wczytanie-pakietow, include=FALSE}
@@ -47,6 +48,8 @@ histogram <- function(data, x, binwidth = NULL, bins = NULL, title) {
   theme(plot.title = element_text(hjust = 0.5, size = 16))
 }
 
+# Boxplot
+
 boxplot <- function(data, x, title) {
   ggplot(data, aes(x = {{ x }})) +
     geom_boxplot(fill = "firebrick", color = "black", outlier.colour = "black", outlier.shape = 16) +
@@ -56,7 +59,6 @@ boxplot <- function(data, x, title) {
     theme_bw() +
     theme(plot.title = element_text(hjust = 0.5, size = 16))
 }
-
 
 ```
 
@@ -82,35 +84,15 @@ Coś tam...
 
 # Opis danych
 
-Dane pochodzą.../Dane zostały zebrane...
+Dane zostały pozyskane przy pomocy Skanera Okazji – funkcjonalności platformy Investoro, aplikacji monitorującej rynek nieruchomości w Polsce. Skaner Okazji scrapuje oferty sprzedaży mieszkań z różnych serwisów ogłoszeniowych, między innymi Otodom, OLX, Allegro, Morizon czy Nieruchomosci-online, aby następnie umożliwić wygenerowanie i pobranie pliku programu Excel. Wśród zmiennych znajdziemy chociażby datę dodania oferty, cenę mieszkania, metraż, liczbę pokoi, lokalizację, piętro, typ budynku, rok budowy i inne. Do analizy przekazano łącznie 13 zmiennych. Obserwacji było początkowo ponad 100 tysięcy, po czyszczeniu danych zostało ich około 80 tysięcy.
 
 ```{r przeglad-danych}
 glimpse(dane)
 ```
 
-Opisać zmienne...
-
-Wśród zmiennych niepotrzebnych do analizy można wymienić link, tytuł, opis oraz numer telefonu. Zmienne te zostaną zatem usunięte.
-
 # Czyszczenie danych
 
-## Walidacja
-
-Tak
-
-```{r}
-glimpse(dane)
-```
-
-
-```{r walidacja}
-
-```
-
-
-## Obsługa braków wartości
-
-Kilka zmiennych do usunięcia, dla niektórych trzeba usunąć obserwacje, w innych imputować wg obliczeń.
+## Walidacja danych i obsługa braków wartości
 
 ```{r czyszczenie-danych, include=FALSE}
 # usuniecie duplikatow po linku
@@ -173,9 +155,11 @@ imputacje <- missForest(as.data.frame(dane), verbose = TRUE)
 dane <- imputacje$ximp
 ```
 
+Usunięto zduplikowane obserwacje. Usunięto zmienne uznane za nieprzydatne do analizy (ocena - trudna w interpretacji zmienna syntetyczna dodawana przez platformę dla inwestorów, dużo braków danych (zera) - ocena zaczęła być wyświetlana dopiero jakiś czas temu; liczba pięter budynku - bardzo dużo braków danych, ciężka do imputacji; reszta usuniętych zmiennych miała znikomą wartość informacyjną). Data modyfikacji ogłoszenia (część ogłoszeń ulegała edycji) zamieniona na zmienną binarną - informuje, czy edycja w ogóle występowała. Cena za metr - usunięto NA (których było bardzo niewiele) i wartości skrajnie odstające uznane za jawne błędy - tym samym poradzono sobie z tożsamymi przypadkami w zmiennej Cena. Podobnie usunięto błędy w innych zmiennych, a także NA, jeśli uznano, że jest ich stosunkowo niewiele, a nie nadają się do imputacji poprzez relacje z resztą zmiennych (w zmiennej Liczba pokoi poprawiono również kilka outlierów ręcznie na podstawie opisu ogłoszenia). Zmodyfikowano typ niektórych zmiennych, na przykład Data jako zmienna numeryczna czy zmienne jakościowe zamienione na factory lub binarne. Na koniec imputowano braki danych w kolumnach Liczba pokoi, Rok budowy i Rodzaj budynku metodą Random Forest.
+
 ## Obsługa obserwacji odstających
 
-Jako tako zostawiamy
+Jako tako zostawiamy...
 
 # Analiza eksploracyjna
 
@@ -184,7 +168,6 @@ Jako tako zostawiamy
 ```{r statystyki-opisowe}
 summary(dane)
 ```
-
 
 ## Analiza rozkładów
 
@@ -281,7 +264,7 @@ ggplot(mapping = aes(x = names(braki_danych), y = braki_danych)) +
 Wykresy pudełkowe zmiennych 
 
 ``` {r box-ploty, fig.align='center', fig.width=6, fig.height=4}
-# wykres pudełkowy pięter
+# Wykres pudełkowy pięter
 
 boxplot(
   data = dane,
@@ -323,8 +306,6 @@ boxplot(
 )
 
 
-
-
 ```
 
 # Obróbka zmiennych
@@ -338,7 +319,6 @@ dane_std <- dane %>%
   sapply(FUN = scale) %>%
   as.data.frame() %>%
   as_tibble()
-
 
 ```
 
@@ -360,7 +340,6 @@ Za pomocą testu Bartletta sprawdzamy czy sensowne jest wykonywanie PCA. Hipotez
 
 Na podstawie wykonanego testu Bartletta widać, że wartość p wynosi ok. 7,5e-31, a zatem odrzucamy hipotezę zerową. Z tego względu w kolejnym kroku wykonujemy PCA.
 
-
 ```{r pca-1, fig.align='center', fig.width=6, fig.height=4}
 
 pca <- prcomp(dane_std, center = FALSE, scale. = FALSE)
@@ -374,6 +353,7 @@ fviz_screeplot(pca, geom = "line", addlabels = TRUE)
 get_eig(pca)
 
 ```
+
 Korzystając z kryterium Keisera można określić, że mieszkania można określić za pomocą pierwszych dwóch głównych składowych, ponieważ dla nich wartości własne są większe od 1. Taki sam wniosek można wyciągnąć na podstawie oceny wykresu osypiska, gdyż po drugim wymiarze zmiana wariancji jest znacznie mniejsza.
 
 ## Analiza skupień (clustering)
@@ -381,7 +361,6 @@ Korzystając z kryterium Keisera można określić, że mieszkania można okreś
 Drugą wykonaną analizą jest analiza skupień. Została tutaj wykorzystana metoda k-średnich. Analiza została przeprowadzona dla tych samych zmiennych, co PCA.
 
 Ze względu na rozmiar zbioru danych, niemożliwe jest stworzenie wykresów za pomocą funkcji fviz_nbclust, nawet dla metody łokciowej WSS, ze względu na ich złożoność obliczeniową związaną z wielokrotnym klastrowaniem i zapisywaniem tych wyników. Z tego względu, jedyną alternatywą jest manualne zastosowanie metody k-średnich, przy zapisywaniu tylko aktualnego obiektu kmeans oraz sumy kwadratów z każdej liczby klastrów, a następnie przedstawienie sum kwadratów wewnątrz klastrów na wykresie, co wykonano poniżej.
-
 
 ```{r }
 
@@ -402,9 +381,8 @@ plot(1:10, wss, type = "b",
 
 
 ```
+
 Wykres nie daje bardzo konkluzywnej odpowiedzi na pytanie ile klastrów użyć, natomiast na podstawie oceny wykresu można powiedzieć, że 3 klastry powinny być dobrą opcją. Analiza została zatem przeprowadzona dla trzech klastrów.
-
-
 
 ```{r }
 
@@ -416,10 +394,6 @@ dane_grupy <- dane %>%
 
 
 ```
-
-
-
-
 
 # Wizualizacja metod
 
@@ -459,7 +433,6 @@ Po pierwsze, potwierdza się wniosek wyciągnięty z macierzy korelacji o sile i
 
 Po drugie, przedstawienie obserwacji za pomocą punktów wskazuje, że występuje mała ilość silnie odstających obserwacji w pierwszym z wymiarów. Mogą to być wielopokojowe apartamenty przeznaczone na wynajem pojedynczych pokoi, a być może i hostele lub hotele. W drugim wymiarze nie ma tak silnie odstających obserwacji, lecz pojawiają się stare nieruchomości o niskiej zabudowie.
 
-
 ## Wizualizacje analizy skupień
 
 ```{r wizualizacje-clustering}
@@ -471,9 +444,6 @@ ggscatter(x = "Rok budowy", y = "Cena", color = "Grupa", data = dane_grupy)
 
 ```
 
-
-
 # Wnioski
-
 
 
