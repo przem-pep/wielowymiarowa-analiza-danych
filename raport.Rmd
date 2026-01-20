@@ -60,6 +60,19 @@ boxplot <- function(data, x, title) {
     theme(plot.title = element_text(hjust = 0.5, size = 16))
 }
 
+#Wykres kolumnowy dla podanej zmiennej 
+
+wykres_kolumnowy <- function(data, x, title) {
+  ggplot(data, aes(x = {{ x }})) +
+    geom_bar(fill = "firebrick", color = "black") +
+    labs(x = NULL,
+         y = "Liczba mieszkań",
+         title = title) +
+    theme_bw() +
+    theme(plot.title = element_text(hjust = 0.5, size = 16),
+          axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) # Obrót napisów, jeśli są długie
+}
+
 ```
 
 ```{r wczytanie-danych, include=FALSE}
@@ -218,6 +231,51 @@ histogram(
   x = `Liczba pokoi`,
   binwidth = 1,
   title = "Rozkład liczby pokoi"
+  
+  # Histogram roku budowy
+
+histogram(
+  data = dane,
+  x = `Rok budowy`,
+  binwidth = 1,
+  title = "Rozkład mieszkań ze względu na rok budowy"
+)
+
+#wykres kolumnowy zmiennej dzielnica
+wykres_kolumnowy(
+  data = dane,
+  x = Dzielnica,
+  title = "Podział mieszkań ze względu na dzielnicę"
+)
+
+#wykres kolumnowy zmiennej rynek 
+wykres_kolumnowy(
+  data = dane,
+  x = Rynek,
+  title = "Podział mieszkań ze względu na rodzaj rynku"
+)
+
+#wykres kolumnwy zmiennej Portal
+wykres_kolumnowy(
+  data = dane,
+  x = Portal,
+  title = "Podział mieszkań ze względu na portal wystawienia ogłoszenia "
+)
+
+#wykres kolumnowy zmiiennej rodzaj budynku
+wykres_kolumnowy(
+  data = dane,
+  x = `Rodzaj budynku`,
+  title = "Podział mieszkań ze względu na rodzaj budynku"
+)
+
+#wykres kolumnowy zmiennej ogłoszeniodawca
+wykres_kolumnowy(
+  data = dane,
+  x = Ogłoszeniodawca,
+  title = "Podział mieszkań ze względu na ogłoszeniodawcę"
+)
+
 )
 ```
 
